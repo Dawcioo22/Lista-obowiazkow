@@ -5,7 +5,7 @@ from datetime import datetime
 
 st.set_page_config(page_title="Lista Obowiązków", page_icon="🧹")
 
-st.title("🏠 Lista Obowiązków")
+st.title("obowiazki grynhagelkow")
 
 # Połączenie
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -50,3 +50,4 @@ try:
     st.dataframe(data.iloc[::-1], use_container_width=True)
 except:
     st.info("Brak danych do wyświetlenia.")
+
