@@ -14,8 +14,8 @@ if not os.path.exists("images"):
 DB_FILE = "obowiazki_log.csv"
 
 # Interfejs użytkownika
-st.title("🏠 Monitor Obowiązków")
-st.subheader("Zamelduj wykonanie zadania")
+st.title("obowiązki grynhagelków")
+st.subheader("Zadanie wykonane!")
 
 # Formularz dodawania
 with st.form("formularz_zadania", clear_on_submit=True):
@@ -29,9 +29,9 @@ with st.form("formularz_zadania", clear_on_submit=True):
     ])
     
     # Obsługa aparatu / pliku
-    zdjecie = st.camera_input("Zrób zdjęcie potwierdzające")
+    zdjecie = st.camera_input("Zrób zdjęcie")
     
-    submit = st.form_submit_button("Wyślij raport")
+    submit = st.form_submit_button("Wyślij")
 
 if submit:
     if osoba and zdjecie:
@@ -57,7 +57,7 @@ if submit:
 
 # Wyświetlanie historii
 st.divider()
-st.subheader("📜 Historia wykonanych zadań")
+st.subheader("Historia wykonanych zadań")
 if os.path.exists(DB_FILE):
     df = pd.read_csv(DB_FILE)
     for index, row in df.iloc[::-1].iterrows(): # Wyświetlaj od najnowszych
