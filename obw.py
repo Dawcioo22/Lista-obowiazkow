@@ -26,10 +26,10 @@ def upload_image(image_file, api_key):
 
 # 4. Formularz
 with st.form("form_v2", clear_on_submit=True):
-    osoba = st.text_input("Kto wykonał?")
-    zadanie = st.selectbox("Zadanie", ["Odkurzanie", "Zmywarka", "Kuchnia", "Śmieci", "Łazienka", "Inne"])
+    osoba = st.text_input("Kto?")
+    zadanie = st.selectbox("Jaki obowiazek?", ["Odkurzanie", "Zmywarka", "Kuchnia", "Śmieci", "Łazienka", "Inne"])
     foto = st.camera_input("Zrób zdjęcie")
-    submit = st.form_submit_button("Zapisz ✅")
+    submit = st.form_submit_button("Zapisz :)")
 
 if submit:
     if osoba:
@@ -103,3 +103,4 @@ try:
         st.info("Brak danych w historii.")
 except:
     st.info("Czekam na dane z arkusza...")
+
