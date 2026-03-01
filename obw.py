@@ -6,9 +6,9 @@ import cloudinary
 import cloudinary.uploader
 
 # 1. Konfiguracja strony
-st.set_page_config(page_title="obowiazki ;)", page_icon="🏠")
+st.set_page_config(page_title="obowiazki :o", page_icon="🏠")
 
-# 2. Konfiguracja Cloudinary
+# 2. Konfiguracja Cloudinary (pobierane z Secrets)
 cloudinary.config(
     cloud_name = st.secrets["CLOUDINARY_CLOUD_NAME"],
     api_key = st.secrets["CLOUDINARY_API_KEY"],
@@ -16,80 +16,86 @@ cloudinary.config(
     secure = True
 )
 
-st.title("Obowiazki Grynhagelkow :)")
+st.title("Obowiazki Grynhagelkow")
 
 # 3. Połączenie z Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# 4. Funkcja do zdjęć (Cloudinary)
+# 4. Funkcja do przesyłania zdjęć na Cloudinary
 def upload_to_cloudinary(image_file):
     try:
-        # Wysyłamy zdjęcie
+        # Wysyłka pliku
         upload_result = cloudinary.uploader.upload(image_file)
-        # Zwracamy bezpośredni link do pliku
+        # Zwrócenie bezpośredniego adresu URL
         return upload_result['secure_url']
     except Exception as e:
         return f"Błąd Cloudinary: {str(e)}"
 
-# 5. Formularz
-with st.form("form_cloudinary", clear_on_submit=True):
+# 5. Formularz wprowadzania danych
+with st.form("form_final", clear_on_submit=True):
     osoba = st.text_input("Kto?")
     zadanie = st.selectbox("obowiazek", ["Odkurzanie", "Zmywarka", "Kuchnia", "Śmieci", "Łazienka", "Inne"])
-    foto = st.camera_input("Zrób zdjęcie")
+    foto = st.camera_input("Zrób zdjęcie (dowód)")
     submit = st.form_submit_button("Zapisz ✅")
 
 if submit:
     if osoba:
-        with st.spinner("Przesyłam zdjęcie i zapisuję dane..."):
+        with st.spinner("Przesyłam dane..."):
             try:
-                # A. Zdjęcie
+                # A. Obsługa zdjęcia
                 foto_url = "Brak zdjęcia"
                 if foto is not None:
                     foto_url = upload_to_cloudinary(foto)
                 
-                # B. Pobranie danych z Google
+                # B. Pobranie aktualnych danych z Google Sheets (ttl=0 zapobiega nadpisywaniu)
                 df = conn.read(worksheet="Arkusz1", ttl=0).dropna(how="all")
                 
-                # C. Czas i Tydzień
+                # C. Obliczanie czasu i tygodnia
                 teraz = datetime.now()
+                data_str = teraz.strftime("%Y-%m-%d %H:%M")
                 nr_tygodnia = teraz.strftime("%V")
                 etykieta_tygodnia = f"Tydzień {nr_tygodnia} ({teraz.year})"
                 
-                # D. Formuła IMAGE dla Excela
-                # Jeśli link jest poprawny, tworzymy formułę, w przeciwnym razie wpisujemy tekst błędu
-                foto_dla_excela = f'=IMAGE("{foto_url}")' if "http" in foto_url else foto_url
+                # D. Przygotowanie linku dla Excela (formuła HYPERLINK)
+                if "http" in foto_url:
+                    # Tworzy klikalny tekst w komórce Excela
+                    foto_dla_excela = f'=HYPERLINK("{foto_url}"; "KLIKNIJ, ABY ZOBACZYĆ")'
+                else:
+                    foto_dla_excela = foto_url
 
-                # E. Nowy wpis
+                # E. Nowy wiersz
                 nowy_wpis = pd.DataFrame({
-                    "Data": [teraz.strftime("%Y-%m-%d %H:%M")],
+                    "Data": [data_str],
                     "Osoba": [osoba.strip().capitalize()],
                     "Zadanie": [zadanie],
                     "Zdjęcie": [foto_dla_excela],
                     "Tydzień": [etykieta_tygodnia]
                 })
                 
+                # F. Połączenie i wysyłka do Google Sheets
                 df_final = pd.concat([df, nowy_wpis], ignore_index=True)
                 conn.update(worksheet="Arkusz1", data=df_final)
                 
-                st.success("Zapisano pomyślnie!")
+                st.success("Zapisano pomyślnie! Link do zdjęcia jest już w Excelu.")
                 st.balloons()
-                st.rerun()
+                st.rerun() # Odświeża aplikację, aby wyczyścić formularz i pokazać nową listę
+                
             except Exception as e:
-                st.error(f"Wystąpił błąd: {e}")
+                st.error(f"Wystąpił błąd podczas zapisu: {e}")
     else:
-        st.warning("Podaj imię!")
+        st.warning("Musisz wpisać imię!")
 
-# 6. Podgląd ostatnich zadań
+# 6. Podgląd ostatnich 10 wpisów (w aplikacji)
 st.divider()
-st.subheader("📋 Ostatnio wykonane")
+st.subheader("📋 Ostatnio dodane")
 try:
     data_hist = conn.read(worksheet="Arkusz1", ttl=0).dropna(how="all")
     if not data_hist.empty:
-        # W aplikacji pokazujemy linki, bo Streamlit nie obsłuży formuły =IMAGE() z Excela
+        # Pokazujemy 10 ostatnich rekordów, odwracając kolejność
         st.dataframe(
             data_hist.iloc[::-1].head(10), 
             use_container_width=True,
             hide_index=True
         )
 except:
-    st.info("Brak danych.")
+    st.info("Lista jest obecnie pusta.")
