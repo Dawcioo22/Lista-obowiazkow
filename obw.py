@@ -1,25 +1,20 @@
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
-import os
 
 # Konfiguracja strony
-st.set_page_config(page_title="Lista Obowiązków", page_icon="✅")
+st.set_page_config(page_title="Lista Obowiązków", page_icon="🧹")
 
-# Tworzenie folderu na zdjęcia, jeśli nie istnieje
-if not os.path.exists("images"):
-    os.makedirs("images")
-
-# Plik bazy danych
-DB_FILE = "obowiazki_log.csv"
-
-# Interfejs użytkownika
 st.title("obowiązki grynhagelków")
-st.subheader("Zadanie wykonane!")
+st.write("Wypełnij formularz, aby zapisać wykonanie zadania")
 
-# Formularz dodawania
-with st.form("formularz_zadania", clear_on_submit=True):
-    osoba = st.text_input("Kto wykonał?")
+# Połączenie z Arkuszem Google (wykorzystuje link z Secrets)
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+# Formularz wprowadzania danych
+with st.form("formularz_obowiazkow", clear_on_submit=True):
+    osoba = st.text_input("Kto wykonał obowiązek?")
     zadanie = st.selectbox("Wybierz obowiązek", [
         "Odkurzanie", 
         "Wyjmowanie zmywarki", 
@@ -28,40 +23,48 @@ with st.form("formularz_zadania", clear_on_submit=True):
         "Inne"
     ])
     
-    # Obsługa aparatu / pliku
-    zdjecie = st.camera_input("Zrób zdjęcie")
-    
-    submit = st.form_submit_button("Wyślij")
+    submit = st.form_submit_button("Zapisz w tabeli ✅")
 
 if submit:
-    if osoba and zdjecie:
-        # Zapisywanie zdjęcia
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        img_path = f"images/{timestamp}_{osoba}.jpg"
-        with open(img_path, "wb") as f:
-            f.write(zdjecie.getbuffer())
-        
-        # Zapisywanie danych do CSV
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        nowy_wpis = pd.DataFrame([[now, osoba, zadanie, img_path]], 
-                                columns=["Data", "Osoba", "Zadanie", "Sciezka_Foto"])
-        
-        if not os.path.isfile(DB_FILE):
-            nowy_wpis.to_csv(DB_FILE, index=False)
-        else:
-            nowy_wpis.to_csv(DB_FILE, mode='a', header=False, index=False)
+    if osoba:
+        try:
+            # 1. Odczytujemy aktualne dane z zakładki "Arkusz1"
+            # usecols=[0,1,2] oznacza kolumny A, B i C
+            existing_data = conn.read(worksheet="Arkusz1", usecols=[0, 1, 2])
+            existing_data = existing_data.dropna(how="all")
             
-        st.success(f"Brawo {osoba}! Zadanie '{zadanie}' zostało zapisane.")
+            # 2. Przygotowujemy nowy wiersz
+            now = datetime.now().strftime("%Y-%m-%d %H:%M")
+            new_row = pd.DataFrame({
+                "Data": [now],
+                "Osoba": [osoba],
+                "Zadanie": [zadanie]
+            })
+            
+            # 3. Łączymy stare dane z nowymi
+            updated_df = pd.concat([existing_data, new_row], ignore_index=True)
+            
+            # 4. Wysyłamy zaktualizowaną tabelę z powrotem do Google Sheets
+            conn.update(worksheet="Arkusz1", data=updated_df)
+            
+            st.success(f"Dobra robota {osoba}! Zadanie zapisane.")
+        except Exception as e:
+            st.error(f"Wystąpił błąd podczas zapisu: {e}")
+            st.info("Sprawdź, czy nazwa zakładki to na pewno 'Arkusz1' i czy masz uprawnienia Edytora.")
     else:
-        st.error("Proszę podać imię i zrobić zdjęcie!")
+        st.warning("Proszę wpisać imię przed zapisaniem!")
 
-# Wyświetlanie historii
+# Wyświetlanie historii zadań pod formularzem
 st.divider()
 st.subheader("Historia wykonanych zadań")
-if os.path.exists(DB_FILE):
-    df = pd.read_csv(DB_FILE)
-    for index, row in df.iloc[::-1].iterrows(): # Wyświetlaj od najnowszych
-        with st.expander(f"{row['Data']} - {row['Osoba']}: {row['Zadanie']}"):
-            st.image(row['Sciezka_Foto'], use_container_width=True)
-else:
-    st.info("Brak wpisów w historii.")
+
+try:
+    # Odświeżamy widok tabeli
+    df_view = conn.read(worksheet="Arkusz1")
+    if not df_view.empty:
+        # Pokazujemy od najnowszych (odwrócona kolejność)
+        st.dataframe(df_view.iloc[::-1], use_container_width=True)
+    else:
+        st.info("Tabela jest pusta. Czekam na pierwszy wpis!")
+except:
+    st.info("Nie udało się jeszcze wczytać danych. Zrób pierwszy wpis!")
