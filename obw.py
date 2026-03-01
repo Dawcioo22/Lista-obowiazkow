@@ -8,7 +8,7 @@ import base64
 # 1. Konfiguracja strony
 st.set_page_config(page_title="Lista Obowiązków", page_icon="📸", layout="centered")
 
-st.title("🏠 Domowy Monitor Obowiązków")
+st.title("Lista obowiązków Grynhagelków")
 st.write("Zrób zdjęcie i zapisz wykonane zadanie.")
 
 # 2. Połączenie z Google Sheets (korzysta z Secrets)
@@ -115,3 +115,4 @@ try:
         st.info("Lista jest pusta. Dodaj pierwszy obowiązek!")
 except Exception as e:
     st.info("Czekam na pierwsze dane...")
+
