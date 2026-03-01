@@ -26,7 +26,7 @@ def upload_to_cloudinary(image_file):
     try:
         # Wysyłka pliku
         upload_result = cloudinary.uploader.upload(image_file)
-        # Zwrócenie bezpośredniego adresu URL
+        # Zwrócenie bezpośredniego adresu URL (czysty link)
         return upload_result['secure_url']
     except Exception as e:
         return f"Błąd Cloudinary: {str(e)}"
@@ -56,12 +56,9 @@ if submit:
                 nr_tygodnia = teraz.strftime("%V")
                 etykieta_tygodnia = f"Tydzień {nr_tygodnia} ({teraz.year})"
                 
-                # D. Przygotowanie linku dla Excela (formuła HYPERLINK)
-                if "http" in foto_url:
-                    # Tworzy klikalny tekst w komórce Excela
-                    foto_dla_excela = f'=HYPERLINK("{foto_url}"; "KLIKNIJ, ABY ZOBACZYĆ")'
-                else:
-                    foto_dla_excela = foto_url
+                # D. Przygotowanie surowego linku dla Excela (bez kłopotliwych formuł)
+                # Google Sheets automatycznie zamieni czysty link HTTPS na klikalny odnośnik.
+                foto_dla_excela = foto_url
 
                 # E. Nowy wiersz
                 nowy_wpis = pd.DataFrame({
@@ -76,9 +73,9 @@ if submit:
                 df_final = pd.concat([df, nowy_wpis], ignore_index=True)
                 conn.update(worksheet="Arkusz1", data=df_final)
                 
-                st.success("Zapisano pomyślnie! Link do zdjęcia jest już w Excelu.")
+                st.success("Zapisano pomyślnie! Czysty link jest już w Excelu.")
                 st.balloons()
-                st.rerun() # Odświeża aplikację, aby wyczyścić formularz i pokazać nową listę
+                st.rerun() 
                 
             except Exception as e:
                 st.error(f"Wystąpił błąd podczas zapisu: {e}")
@@ -91,7 +88,7 @@ st.subheader("📋 Ostatnio dodane")
 try:
     data_hist = conn.read(worksheet="Arkusz1", ttl=0).dropna(how="all")
     if not data_hist.empty:
-        # Pokazujemy 10 ostatnich rekordów, odwracając kolejność
+        # Pokazujemy 10 ostatnich rekordów
         st.dataframe(
             data_hist.iloc[::-1].head(10), 
             use_container_width=True,
